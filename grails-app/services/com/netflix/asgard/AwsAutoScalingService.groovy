@@ -717,6 +717,10 @@ class AwsAutoScalingService implements CacheInitializer, InitializingBean {
         idService.nextId(userContext, SimpleDbSequenceLocator.Policy)
     }
 
+    private List<NotificationConfiguration> retrieveNotificationConfigurations(Region region) {
+        notificationConfigurationRetriever.retrieve(region, new DescribeNotificationConfigurationsRequest())
+    }
+
     /**
      * Create an ASG.
      *
