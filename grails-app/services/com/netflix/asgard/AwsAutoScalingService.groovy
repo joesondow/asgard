@@ -30,6 +30,8 @@ import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
 import com.amazonaws.services.autoscaling.model.DescribeLaunchConfigurationsRequest
 import com.amazonaws.services.autoscaling.model.DescribeLaunchConfigurationsResult
+import com.amazonaws.services.autoscaling.model.DescribeNotificationConfigurationsRequest
+import com.amazonaws.services.autoscaling.model.DescribeNotificationConfigurationsResult
 import com.amazonaws.services.autoscaling.model.DescribePoliciesRequest
 import com.amazonaws.services.autoscaling.model.DescribePoliciesResult
 import com.amazonaws.services.autoscaling.model.DescribeScalingActivitiesRequest
@@ -40,6 +42,7 @@ import com.amazonaws.services.autoscaling.model.Ebs
 import com.amazonaws.services.autoscaling.model.Instance
 import com.amazonaws.services.autoscaling.model.LaunchConfiguration
 import com.amazonaws.services.autoscaling.model.LifecycleState
+import com.amazonaws.services.autoscaling.model.NotificationConfiguration
 import com.amazonaws.services.autoscaling.model.PutScalingPolicyRequest
 import com.amazonaws.services.autoscaling.model.PutScalingPolicyResult
 import com.amazonaws.services.autoscaling.model.PutScheduledUpdateGroupActionRequest
@@ -118,6 +121,18 @@ class AwsAutoScalingService implements CacheInitializer, InitializingBean {
         }
         protected List<ScheduledUpdateGroupAction> accessResult(DescribeScheduledActionsResult result) {
             result.scheduledUpdateGroupActions
+        }
+    }
+
+    final AwsResultsRetriever notificationConfigurationRetriever = new AwsResultsRetriever<NotificationConfiguration,
+            DescribeNotificationConfigurationsRequest, DescribeNotificationConfigurationsResult>() {
+
+        protected DescribeNotificationConfigurationsResult makeRequest(Region region,
+                DescribeNotificationConfigurationsRequest request) {
+            awsClient.by(region).describeNotificationConfigurations(request)
+        }
+        protected List<NotificationConfiguration> accessResult(DescribeNotificationConfigurationsResult result) {
+            result.notificationConfigurations
         }
     }
 
