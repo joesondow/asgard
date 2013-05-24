@@ -319,6 +319,7 @@ button.resize div, a.resize                   { background-image: url(../images/
 .buttons button.removeBalance div             { background-image: url(../images/tango/24/emblems/emblem-balance-remove.png);                     }
 .buttons button.instanceBalance div           { background-image: url(../images/tango/24/emblems/emblem-balance-screen.png);                     }
 .buttons a.attachElastic                      { background-image: url(../images/tango/24/actions/lasso-screen.png);                              }
+.buttons button.crossZone div                 { background-image: url(../images/tango/tango-art-libre/22x22/actions/align-horizontal-center.png) ;           }
 .buttons button.securityEdit div              { background-image: url(../images/tango/24/status/secure-preferences.png);     padding-left: 33px; }
 .buttons a.cli                                { background-image: url(../images/tango/24/apps/utilities-terminal.png);       padding-left: 35px; }
 .buttons a.userData                           { background-image: url(../images/tango/24/actions/document-properties.png);                       }

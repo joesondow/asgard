@@ -57,8 +57,14 @@
             </td>
             <td class="lbPolicies">
               <ul>
+                <g:each var="policy" in="${lb.policies.appCookieStickinessPolicies}">
+                  <li style="color: blue;">${policy}</li>
+                </g:each>
+                <g:each var="policy" in="${lb.policies.lBCookieStickinessPolicies}">
+                  <li style="color: red;">${policy}</li>
+                </g:each>
                 <g:each var="policy" in="${lb.policies.otherPolicies}">
-                  <li>${policy}</li>
+                  <li style="color: green;">${policy}</li>
                 </g:each>
               </ul>
             <td>

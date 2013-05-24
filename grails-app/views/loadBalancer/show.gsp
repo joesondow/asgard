@@ -38,7 +38,10 @@
         <g:link class="edit" action="edit" params="[id: loadBalancer.loadBalancerName]">Edit Load Balancer</g:link>
         <g:buttonSubmit class="delete" action="delete" value="Delete Load Balancer"
                         data-warning="Really delete Load Balancer '${loadBalancer.loadBalancerName}'?" />
-        <g:link class="create" action="prepareListener" params="[id: loadBalancer.loadBalancerName]">Add Listener</g:link>
+        <g:link class="create" action="prepareListener" params="[id: loadBalancer.loadBalancerName]">Prepare to Add Listener</g:link>
+        <g:if test="${allowCrossZoneLoadBalancing}">
+          <g:buttonSubmit class="crossZone" action="enableCrossZoneLoadBalancing" value="Enable Cross-Zone Load Balancing"/>
+        </g:if>
       </g:form>
     </div>
     <div class="dialog">
@@ -61,10 +64,6 @@
           </td>
         </tr>
         <tr class="prop">
-          <td class="name">Policies:</td>
-          <td class="value">${loadBalancer.policies.otherPolicies}</td>
-        </tr>
-        <tr class="prop">
           <td class="name">VPC Purpose:</td>
           <td class="value">${subnetPurpose}</td>
         </tr>
@@ -72,6 +71,112 @@
           <td class="name">Subnets:</td>
           <td class="value">${loadBalancer.subnets}</td>
         </tr>
+        <g:if test="${loadBalancer.policies.appCookieStickinessPolicies}">
+          <tr class="prop">
+            <td class="name">App Cookie Stickiness Policies:</td>
+            <td class="value">
+              <div class="list">
+                <table class="sortable subitems">
+                  <thead>
+                  <tr>
+                    <th>Policy Name</th>
+                    <th>Cookie Name</th>
+                    <th class="sorttable_nosort"></th>
+                  </tr>
+                  </thead>
+                  <g:each var="policy" in="${loadBalancer.policies.appCookieStickinessPolicies.sort { it.policyName }}" status="i">
+                    <tr class="${(i % 2) == 0 ? 'odd' : 'even'}">
+                      <td>${policy.policyName}</td>
+                      <td>${policy.cookieName}</td>
+                      <td class="buttons">
+                        <g:form>
+                          <input type="hidden" name="loadBalancerName" value="${loadBalancer.loadBalancerName}"/>
+                          <input type="hidden" name="policyName" value="${policy.policyName}"/>
+                          <g:buttonSubmit class="delete" action="removePolicy" value="Remove" data-warning="Really remove policy ${policy.policyName} for ${loadBalancer.loadBalancerName}?"/>
+                        </g:form>
+                      </td>
+                    </tr>
+                  </g:each>
+                </table>
+              </div>
+            </td>
+          </tr>
+        </g:if>
+
+
+
+        <g:if test="${loadBalancer.policies.lBCookieStickinessPolicies}">
+          <tr class="prop">
+            <td class="name">LB Cookie Stickiness Policies:</td>
+            <td class="value">
+              <div class="list">
+                <table class="sortable subitems">
+                  <thead>
+                  <tr>
+                    <th>Policy Name</th>
+                    <th>Cookie Name</th>
+                    <th class="sorttable_nosort"></th>
+                  </tr>
+                  </thead>
+                  <g:each var="policy" in="${loadBalancer.policies.lBCookieStickinessPolicies.sort { it.policyName }}" status="i">
+                    <tr class="${(i % 2) == 0 ? 'odd' : 'even'}">
+                      <td>${policy.policyName}</td>
+                      <td>${policy.cookieName}</td>
+                      <td class="buttons">
+                        <g:form>
+                          <input type="hidden" name="loadBalancerName" value="${loadBalancer.loadBalancerName}"/>
+                          <input type="hidden" name="policyName" value="${policy.policyName}"/>
+                          <g:buttonSubmit class="delete" action="removePolicy" value="Remove" data-warning="Really remove policy ${policy.policyName} for ${loadBalancer.loadBalancerName}?"/>
+                        </g:form>
+                      </td>
+                    </tr>
+                  </g:each>
+                </table>
+              </div>
+            </td>
+          </tr>
+        </g:if>
+
+
+
+        <g:if test="${otherPolicies}">
+          <tr class="prop">
+            <td class="name">Policies:</td>
+            <td class="value">
+              <div class="list">
+                <table class="sortable subitems">
+                  <thead>
+                  <tr>
+                    <th>Policy Name</th>
+                    <th>Policy Type</th>
+                    <th>Attributes</th>
+                    <th class="sorttable_nosort"></th>
+                  </tr>
+                  </thead>
+                  <g:each var="policy" in="${otherPolicies.sort { it.policyName }}" status="i">
+                    <tr class="${(i % 2) == 0 ? 'odd' : 'even'}">
+                      <td>${policy.policyName}</td>
+                      <td>${policy.policyTypeName}</td>
+                      <td class="variables">
+                        <g:each in="${policy.policyAttributeDescriptions}" var="${attribute}">
+                          <span class="tagKey">${attribute.attributeName}:</span> ${attribute.attributeValue}<br/>
+                        </g:each>
+                      </td>
+                      <td class="buttons">
+                        <g:form>
+                          <input type="hidden" name="loadBalancerName" value="${loadBalancer.loadBalancerName}"/>
+                          <input type="hidden" name="policyName" value="${policy.policyName}"/>
+                          <g:buttonSubmit class="delete" action="removePolicy" value="Remove" data-warning="Really remove policy ${policy.policyName} for ${loadBalancer.loadBalancerName}?"/>
+                        </g:form>
+                      </td>
+                    </tr>
+                  </g:each>
+                </table>
+              </div>
+            </td>
+          </tr>
+        </g:if>
+
         <tr class="prop">
           <td class="name">Listeners:</td>
           <td>
@@ -83,6 +188,7 @@
                     <th>Protocol</th>
                     <th>Load Balancer Port</th>
                     <th>Instance Port</th>
+                    <th>Policies</th>
                     <th class="sorttable_nosort"></th>
                   </tr>
                   </thead>
@@ -91,6 +197,7 @@
                       <td>${listenerDescription.listener.protocol}</td>
                       <td>${listenerDescription.listener.loadBalancerPort}</td>
                       <td>${listenerDescription.listener.instancePort}</td>
+                      <td>${listenerDescription.policyNames}</td>
                       <td class="buttons">
                         <g:form>
                           <input type="hidden" name="name" value="${loadBalancer.loadBalancerName}"/>

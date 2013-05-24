@@ -372,6 +372,14 @@ class ConfigService {
         grailsApplication.config.sns?.taskFinished?.topicName ?: null
     }
 
+    boolean getAllowCrossZoneLoadBalancing() {
+        grailsApplication.config.cloud?.allowCrossZoneLoadBalancing ?: false
+    }
+
+    String getCrossZoneLoadBalancerPolicyName() {
+        grailsApplication.config.cloud?.crossZoneLoadBalancerPolicyName ?: 'CrossZoneLoadBalancerPolicy'
+    }
+
     /**
      * @return maximum time in milliseconds for remote REST calls to wait before timing out
      */

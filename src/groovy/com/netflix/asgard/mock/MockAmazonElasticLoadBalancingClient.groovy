@@ -37,6 +37,8 @@ import com.amazonaws.services.elasticloadbalancing.model.DeregisterInstancesFrom
 import com.amazonaws.services.elasticloadbalancing.model.DeregisterInstancesFromLoadBalancerResult
 import com.amazonaws.services.elasticloadbalancing.model.DescribeInstanceHealthRequest
 import com.amazonaws.services.elasticloadbalancing.model.DescribeInstanceHealthResult
+import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancerPoliciesRequest
+import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancerPoliciesResult
 import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersRequest
 import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersResult
 import com.amazonaws.services.elasticloadbalancing.model.DisableAvailabilityZonesForLoadBalancerRequest
@@ -180,4 +182,9 @@ class MockAmazonElasticLoadBalancingClient extends AmazonElasticLoadBalancingCli
     void shutdown() {}
 
     ResponseMetadata getCachedResponseMetadata(AmazonWebServiceRequest amazonWebServiceRequest) { null }
+
+    DescribeLoadBalancerPoliciesResult describeLoadBalancerPolicies(
+            DescribeLoadBalancerPoliciesRequest describeLoadBalancerPoliciesRequest) {
+        new DescribeLoadBalancerPoliciesResult()
+    }
 }

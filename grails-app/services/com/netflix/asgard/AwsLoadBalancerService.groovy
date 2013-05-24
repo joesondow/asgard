@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 package com.netflix.asgard
-
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.ec2.model.SecurityGroup
@@ -22,11 +21,15 @@ import com.amazonaws.services.elasticloadbalancing.AmazonElasticLoadBalancing
 import com.amazonaws.services.elasticloadbalancing.model.AttachLoadBalancerToSubnetsRequest
 import com.amazonaws.services.elasticloadbalancing.model.ConfigureHealthCheckRequest
 import com.amazonaws.services.elasticloadbalancing.model.CreateLoadBalancerListenersRequest
+import com.amazonaws.services.elasticloadbalancing.model.CreateLoadBalancerPolicyRequest
 import com.amazonaws.services.elasticloadbalancing.model.CreateLoadBalancerRequest
 import com.amazonaws.services.elasticloadbalancing.model.DeleteLoadBalancerListenersRequest
+import com.amazonaws.services.elasticloadbalancing.model.DeleteLoadBalancerPolicyRequest
 import com.amazonaws.services.elasticloadbalancing.model.DeleteLoadBalancerRequest
 import com.amazonaws.services.elasticloadbalancing.model.DeregisterInstancesFromLoadBalancerRequest
 import com.amazonaws.services.elasticloadbalancing.model.DescribeInstanceHealthRequest
+import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancerPoliciesRequest
+import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancerPoliciesResult
 import com.amazonaws.services.elasticloadbalancing.model.DescribeLoadBalancersRequest
 import com.amazonaws.services.elasticloadbalancing.model.DetachLoadBalancerFromSubnetsRequest
 import com.amazonaws.services.elasticloadbalancing.model.DisableAvailabilityZonesForLoadBalancerRequest
@@ -34,8 +37,13 @@ import com.amazonaws.services.elasticloadbalancing.model.EnableAvailabilityZones
 import com.amazonaws.services.elasticloadbalancing.model.Instance
 import com.amazonaws.services.elasticloadbalancing.model.InstanceState
 import com.amazonaws.services.elasticloadbalancing.model.Listener
+import com.amazonaws.services.elasticloadbalancing.model.ListenerDescription
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerDescription
+import com.amazonaws.services.elasticloadbalancing.model.PolicyAttribute
+import com.amazonaws.services.elasticloadbalancing.model.PolicyDescription
+import com.amazonaws.services.elasticloadbalancing.model.PolicyTypeDescription
 import com.amazonaws.services.elasticloadbalancing.model.RegisterInstancesWithLoadBalancerRequest
+import com.amazonaws.services.elasticloadbalancing.model.SetLoadBalancerPoliciesOfListenerRequest
 import com.amazonaws.services.elasticloadbalancing.model.SourceSecurityGroup
 import com.google.common.collect.ArrayListMultimap
 import com.google.common.collect.Multimap
@@ -344,9 +352,164 @@ class AwsLoadBalancerService implements CacheInitializer, InitializingBean {
         }, Link.to(EntityType.loadBalancer, lbName), existingTask)
     }
 
+/**
+ * Tries to enable CrossZoneLoadBalancerPolicy on an ELB with existing listeners, by adding the policy to the
+ * listeners. This doesn't work because Amazon responds with an error saying that this policy can only be applied to
+ * load balancers and not to listeners.
+ *
+ * @param userContext who, where, why
+ * @param lbName the load balancer name
+ */
+void enableCrossZoneLoadBalancingIncludingExistingListeners(UserContext userContext, String lbName) {
+    String policyName = configService.crossZoneLoadBalancerPolicyName
+    PolicyAttribute attribute = new PolicyAttribute(attributeName: 'Scheme', attributeValue: 'CROSS_ZONE')
+    def policy = new PolicyDescription(policyName: policyName, policyTypeName: 'ZoneLoadBalancingPolicyType')
+    LoadBalancerDescription loadBalancer = getLoadBalancer(userContext, lbName)
+    addPolicyToLoadBalancerAndListeners(userContext, lbName, policy, [attribute], loadBalancer.listenerDescriptions)
+}
+
+/**
+ * Enables CrossZoneLoadBalancerPolicy on an ELB only.
+ *
+ * This seems to work, but it's unclear whether it has any functional effect, since we don't know yet whether zone
+ * selection is supposed to matter even when CrossZoneLoadBalancerPolicy is applied to the ELB.
+ *
+ * @param userContext who, where, why
+ * @param lbName the load balancer name
+ */
+void enableCrossZoneLoadBalancing(UserContext userContext, String lbName) {
+    String policyName = configService.crossZoneLoadBalancerPolicyName
+    PolicyAttribute attribute = new PolicyAttribute(attributeName: 'Scheme', attributeValue: 'CROSS_ZONE')
+    def policy = new PolicyDescription(policyName: policyName, policyTypeName: 'ZoneLoadBalancingPolicyType')
+    addPolicy(userContext, lbName, policy, [attribute])
+}
+
+/**
+ * Adds the load balancing policy to the specified load balancer and also to all the existing listeners.
+ *
+ * Trying this with CrossZoneLoadBalancingPolicy results in an error from Amazon saying that this policy cannot
+ * be applied to listeners, but can only be applied to ELBs.
+ *
+ * @param userContext who, where, why
+ * @param lbName the load balancer name
+ * @param policy the policy description that should be applied to the ELB and the listeners
+ * @param attributes the attributes that should be applied to the policy
+ * @param listenerDescriptions the existing listeners on the ELB
+ * @param existingTask optional runtime context
+ */
+void addPolicyToLoadBalancerAndToListeners(UserContext userContext, String lbName, PolicyDescription policy,
+                                         List<PolicyAttribute> attributes,
+                                         List<ListenerDescription> listenerDescriptions, Task existingTask = null) {
+    String policyName = policy.policyName
+    def createRequest = new CreateLoadBalancerPolicyRequest(loadBalancerName: lbName, policyName: policyName,
+            policyTypeName: policy.policyTypeName, policyAttributes: attributes)
+    taskService.runTask(userContext, "Adding policy '${policyName}' to load balancer '${lbName}'", { task ->
+        awsClient.by(userContext.region).createLoadBalancerPolicy(createRequest)
+
+        for (ListenerDescription listenerDescription in listenerDescriptions) {
+            SetLoadBalancerPoliciesOfListenerRequest listenerRequest = new SetLoadBalancerPoliciesOfListenerRequest()
+            Listener listener = listenerDescription.listener
+            int port = listener.loadBalancerPort
+            Set<String> policies = listenerDescription.policyNames as Set
+            policies.add(policyName)
+            List<String> policyNamesList = policies as List
+            listenerRequest.withLoadBalancerName(lbName).withLoadBalancerPort(port).withPolicyNames(policyNamesList)
+            awsClient.by(userContext.region).setLoadBalancerPoliciesOfListener(listenerRequest)
+        }
+
+    }, Link.to(EntityType.loadBalancer, lbName), existingTask)
+}
+
+/**
+ * Adds the load balancing policy to the specified load balancer only.
+ *
+ * @param userContext who, where, why
+ * @param lbName the load balancer name
+ * @param policy the policy description that should be applied to the ELB and the listeners
+ * @param attributes the attributes that should be applied to the policy
+ * @param existingTask optional runtime context
+ */
+void addPolicy(UserContext userContext, String lbName, PolicyDescription policy, List<PolicyAttribute> attributes,
+               Task existingTask = null) {
+    String policyName = policy.policyName
+    def createRequest = new CreateLoadBalancerPolicyRequest(loadBalancerName: lbName, policyName: policyName,
+            policyTypeName: policy.policyTypeName, policyAttributes: attributes)
+    taskService.runTask(userContext, "Adding policy '${policyName}' to load balancer '${lbName}'", { task ->
+        awsClient.by(userContext.region).createLoadBalancerPolicy(createRequest)
+        awsClient.by(userContext.region).setLoadBalancerPoliciesOfListener(new SetLoadBalancerPoliciesOfListenerRequest(loadBalancerName: lbName, loadBalancerPort: 0, policyNames: [policyName]))
+    }, Link.to(EntityType.loadBalancer, lbName), existingTask)
+}
+
+/**
+ * Removes the specified policy from the specified load balancer, including removing the policy from the listener
+ * that has port "0". This works, and has the surprising side effect of deleting the "0" listener from the ELB.
+ *
+ * @param userContext who, where, why
+ * @param lbName the load balancer name
+ * @param policyName the name of the policy to remove
+ * @param existingTask optional runtime context
+ */
+void removePolicyFromLoadBalancerAndFromZeroPortListener(UserContext userContext, String lbName, String policyName,
+                                                         Task existingTask = null) {
+    DeleteLoadBalancerPolicyRequest request = new DeleteLoadBalancerPolicyRequest(loadBalancerName: lbName,
+            policyName: policyName)
+    taskService.runTask(userContext, "Removing policy ${policyName} from load balancer '${lbName}'", { task ->
+        SetLoadBalancerPoliciesOfListenerRequest listenerRequest = new SetLoadBalancerPoliciesOfListenerRequest()
+        listenerRequest.withLoadBalancerName(lbName).withLoadBalancerPort(0).withPolicyNames([])
+        awsClient.by(userContext.region).setLoadBalancerPoliciesOfListener(listenerRequest)
+        awsClient.by(userContext.region).deleteLoadBalancerPolicy(request)
+    }, Link.to(EntityType.loadBalancer, lbName), existingTask)
+}
+
+/**
+ * Removes the specified policy from the specified load balancer only. Does not remove policy from any listeners.
+ *
+ * On load balancers configured by Amazon with a "0" port listener, this method throws an exception saying that the
+ * policy cannot be removed from the ELB because it is still associated with some listeners, even though there are
+ * no policy names in the ListenerDescription objects for the load balancer.
+ *
+ * On load balancers that do not have a "0" listener, this method can successfully remove the
+ * CrossZoneLoadBalancerPolicy from the load balancer.
+ *
+ * @param userContext who, where, why
+ * @param lbName the load balancer name
+ * @param policyName the name of the policy to remove
+ * @param existingTask optional runtime context
+ */
+void removePolicy(UserContext userContext, String lbName, String policyName, Task existingTask = null) {
+    DeleteLoadBalancerPolicyRequest request = new DeleteLoadBalancerPolicyRequest(loadBalancerName: lbName,
+            policyName: policyName)
+    taskService.runTask(userContext, "Removing policy ${policyName} from load balancer '${lbName}'", { task ->
+        awsClient.by(userContext.region).deleteLoadBalancerPolicy(request)
+    }, Link.to(EntityType.loadBalancer, lbName), existingTask)
+}
+
     //CreateAppCookieStickinessPolicy
     //CreateLBCookieStickinessPolicy
     //SetLoadBalancerPoliciesOfListener
     //DeleteLoadBalancerPolicy
+
+    // This is useless. Don't do this.
+    List<PolicyDescription> retrieveLoadBalancerPolicies(Region region) {
+        awsClient.by(region).describeLoadBalancerPolicies().policyDescriptions
+    }
+
+    PolicyDescription getLoadBalancerPolicy(UserContext userContext, String loadBalancerName, String policyName) {
+        DescribeLoadBalancerPoliciesRequest request = new DescribeLoadBalancerPoliciesRequest(loadBalancerName: loadBalancerName, policyNames: [policyName])
+        DescribeLoadBalancerPoliciesResult result = awsClient.by(userContext.region).describeLoadBalancerPolicies(request)
+        result.policyDescriptions[0]
+    }
+
+
+    List<PolicyDescription> getLoadBalancerPolicies(UserContext userContext, String loadBalancerName, List<String> policyNames) {
+        DescribeLoadBalancerPoliciesRequest request = new DescribeLoadBalancerPoliciesRequest(loadBalancerName: loadBalancerName, policyNames: policyNames)
+        DescribeLoadBalancerPoliciesResult result = awsClient.by(userContext.region).describeLoadBalancerPolicies(request)
+        result.policyDescriptions
+    }
+
+
+    List<PolicyTypeDescription> retrieveLoadBalancerPolicyTypes(Region region) {
+        awsClient.by(region).describeLoadBalancerPolicyTypes().policyTypeDescriptions
+    }
 
 }

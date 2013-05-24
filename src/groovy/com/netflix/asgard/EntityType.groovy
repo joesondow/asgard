@@ -32,6 +32,7 @@ import com.amazonaws.services.ec2.model.Subnet
 import com.amazonaws.services.ec2.model.Volume
 import com.amazonaws.services.ec2.model.Vpc
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerDescription
+import com.amazonaws.services.elasticloadbalancing.model.PolicyDescription
 import com.amazonaws.services.elasticloadbalancing.model.SourceSecurityGroup
 import com.amazonaws.services.rds.model.DBInstance
 import com.amazonaws.services.rds.model.DBSecurityGroup
@@ -93,6 +94,8 @@ import org.codehaus.jackson.annotate.JsonProperty
             { it.launchConfigurationName })
     static final EntityType<LoadBalancerDescription> loadBalancer = create('Elastic Load Balancer',
             { it.loadBalancerName })
+    static final EntityType<PolicyDescription> loadBalancerPolicy = create('Elastic Load Balancer Policy',
+            { it.policyName })
     static final EntityType<SimpleQueue> queue = create('Queue', { it.name })
     static final EntityType<ReservedInstances> reservation = create('Reservation', { it.reservedInstancesId })
     static final EntityType<ScalingPolicy> scalingPolicy = create('Scaling Policy', { it.policyName })

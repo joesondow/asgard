@@ -22,6 +22,7 @@ import com.amazonaws.services.ec2.model.SecurityGroup
 import com.amazonaws.services.elasticloadbalancing.model.HealthCheck
 import com.amazonaws.services.elasticloadbalancing.model.Listener
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerDescription
+import com.amazonaws.services.elasticloadbalancing.model.PolicyDescription
 import com.netflix.asgard.model.InstanceStateData
 import com.netflix.asgard.model.SubnetTarget
 import com.netflix.asgard.model.Subnets
@@ -72,6 +73,10 @@ class LoadBalancerController {
         if (!lb) {
             Requests.renderNotFound('Load Balancer', name, this)
         } else {
+            List<String> otherPolicyNames = lb.policies.otherPolicies
+            boolean allowCrossZoneLoadBalancing = configService.allowCrossZoneLoadBalancing
+            List<PolicyDescription> otherPolicies =
+                    awsLoadBalancerService.getLoadBalancerPolicies(userContext, name, otherPolicyNames)
             String appName = awsLoadBalancerService.getAppNameForLoadBalancer(name)
             List<AutoScalingGroup> groups =
                     awsAutoScalingService.getAutoScalingGroupsForLB(userContext, name).sort { it.autoScalingGroupName }
@@ -82,6 +87,8 @@ class LoadBalancerController {
             String subnetPurpose = awsEc2Service.getSubnets(userContext).coerceLoneOrNoneFromIds(lb.subnets)?.purpose
             Map details = [
                     loadBalancer: lb,
+                    otherPolicies: otherPolicies,
+                    allowCrossZoneLoadBalancing: allowCrossZoneLoadBalancing,
                     app: applicationService.getRegisteredApplication(userContext, appName),
                     clusters: clusterNames,
                     groups: groups,
@@ -258,7 +265,7 @@ class LoadBalancerController {
 
     def addListener = { AddListenerCommand cmd ->
         if (cmd.hasErrors()) {
-            chain(action: 'prepareListener', model: [cmd:cmd], params: params)
+            chain(action: 'prepareListener', model: [cmd: cmd], params: params)
         } else {
             UserContext userContext = UserContext.of(request)
             Listener listener = new Listener(protocol: cmd.protocol, loadBalancerPort: cmd.lbPort,
@@ -289,6 +296,58 @@ class LoadBalancerController {
             }
         }
     }
+
+    def enableCrossZoneLoadBalancing(String name) {
+        UserContext userContext = UserContext.of(request)
+        awsLoadBalancerService.enableCrossZoneLoadBalancing(userContext, name)
+        flash.message = 'Cross zone load balancing policy added'
+        redirect(action: 'show', params: [id: name])
+    }
+
+
+
+//    def addPolicy = { AddPolicyCommand cmd ->
+//        if (cmd.hasErrors()) {
+//            chain(action: 'preparePolicy', model: [cmd: cmd], params: params)
+//        } else {
+//            UserContext userContext = UserContext.of(request)
+//            PolicyDescription policy = new PolicyDescription(policyName: cmd.policyName, cmd.policyTypeName, cmd.policyAttributeDescriptions)
+////            Listener listener = new Listener(protocol: cmd.protocol, loadBalancerPort: cmd.lbPort,
+////                    instancePort: cmd.instancePort)
+//            try {
+//                awsLoadBalancerService.addPolicy(userContext, cmd.loadBalancerName, policy)
+//
+//
+//
+////                awsLoadBalancerService.addListeners(userContext, cmd.name, [listener])
+//                flash.message = "Policy '${cmd.policyName}' has been added to '${cmd.loadBalancerName}'."
+//                redirect(action: 'show', params: [id: cmd.loadBalancerName])
+//            } catch (Exception e) {
+//                flash.message = "Could not add policy: ${e}"
+//                chain(action: 'prepareListener', model: [cmd: cmd], params: params)
+//            }
+//        }
+//    }
+
+
+    def removePolicy = { RemovePolicyCommand cmd ->
+        if (cmd.hasErrors()) {
+            chain(action: 'show', model: [cmd: cmd], params: params)
+        } else {
+            UserContext userContext = UserContext.of(request)
+            String loadBalancerName = cmd.loadBalancerName
+            String policyName = cmd.policyName
+            try {
+                awsLoadBalancerService.removePolicy(userContext, loadBalancerName, policyName)
+                flash.message = "Policy '${policyName}' removed from '${loadBalancerName}'."
+                redirect(action: 'show', params: [id: loadBalancerName])
+            } catch (Exception e) {
+                flash.message = "Could not remove policy '${policyName}' from load balancer '${loadBalancerName}': ${e}"
+                chain(action: 'show', model: [cmd: cmd], id: loadBalancerName)
+            }
+        }
+    }
+
 
     def result = { render view: '/common/result' }
 }
@@ -405,5 +464,29 @@ class RemoveListenerCommand {
     static constraints = {
         name(nullable: false, blank: false)
         lbPort(nullable: false, range: 0..65535)
+    }
+}
+
+class AddPolicyCommand {
+    String loadBalancerName
+    String policyName
+    String policyTypeName
+    Integer instancePort
+
+    static constraints = {
+//        name(nullable: false, blank: false)
+//        protocol(nullable: false, blank: false)
+//        lbPort(nullable: false, range: 0..65535)
+//        instancePort(nullable: false, range: 0..65535)
+    }
+}
+
+class RemovePolicyCommand {
+    String loadBalancerName
+    String policyName
+
+    static constraints = {
+        loadBalancerName(nullable: false, blank: false)
+        policyName(nullable: false, blank: false)
     }
 }
