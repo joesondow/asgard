@@ -63,7 +63,7 @@
         return false;
     };
 
-    jQuery('.aprilfools li').live('click', acknowledgeAndClose);
+    jQuery(document).on('click', '.aprilfools li', acknowledgeAndClose);
 
     jQuery('#occasionIcon').click(Shadowbox.openAprilFoolsJoke);
 })();
