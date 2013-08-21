@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import com.amazonaws.services.ec2.model.Image
 import com.netflix.asgard.FastProperty
+import com.netflix.asgard.model.ImageMixin
 import grails.converters.JSON
 
 class BootStrap {
@@ -28,6 +30,9 @@ class BootStrap {
     def monkeyPatcherService
 
     def init = { servletContext ->
+
+        Image.mixin ImageMixin
+
         if (configService.appConfigured) { // Only start warming the caches if Asgard has been configured
             initService.initializeApplication()
         }
