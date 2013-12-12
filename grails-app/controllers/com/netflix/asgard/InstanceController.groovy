@@ -203,6 +203,9 @@ class InstanceController {
     }
 
     def terminate = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         List<String> instanceIds = Requests.ensureList(params.selectedInstances ?: params.instanceId)
 
@@ -230,6 +233,9 @@ class InstanceController {
     }
 
     def terminateAndShrinkGroup = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         String instanceId = params.instanceId
         try {
@@ -250,6 +256,9 @@ class InstanceController {
     }
 
     def reboot = {
+
+        // Prevent action if cluster is locked down
+
         String instanceId = EntityType.instance.ensurePrefix(params.instanceId)
         UserContext userContext = UserContext.of(request)
         awsEc2Service.rebootInstance(userContext, instanceId)
@@ -284,6 +293,9 @@ class InstanceController {
     }
 
     def deregister = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         List<String> instanceIds = Requests.ensureList(params.instanceId)
         String autoScalingGroupName = params.autoScalingGroupName
@@ -305,6 +317,9 @@ class InstanceController {
     }
 
     def register = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         List<String> instanceIds = Requests.ensureList(params.instanceId)
         String autoScalingGroupName = params.autoScalingGroupName
@@ -335,6 +350,9 @@ class InstanceController {
     }
 
     def associate = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         Instance instance = awsEc2Service.getInstance(userContext, EntityType.instance.ensurePrefix(params.instanceId))
         if (!instance) {
@@ -353,7 +371,9 @@ class InstanceController {
     }
 
     def associateDo = {
-        //println "associateDo: ${params}"
+
+        // Prevent action if cluster is locked down
+
         String publicIp = params.publicIp
         String instanceId = EntityType.instance.ensurePrefix(params.instanceId)
         UserContext userContext = UserContext.of(request)
@@ -367,6 +387,9 @@ class InstanceController {
     }
 
     def takeOutOfService = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         String autoScalingGroupName = params.autoScalingGroupName
         List<String> instanceIds = Requests.ensureList(params.instanceId)
@@ -376,6 +399,9 @@ class InstanceController {
     }
 
     def putInService = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         String autoScalingGroupName = params.autoScalingGroupName
         List<String> instanceIds = Requests.ensureList(params.instanceId)

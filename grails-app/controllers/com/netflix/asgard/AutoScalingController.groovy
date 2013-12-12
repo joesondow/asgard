@@ -218,6 +218,9 @@ class AutoScalingController {
 
     def create = {
         UserContext userContext = UserContext.of(request)
+
+        // Prevent action if cluster is locked down
+
         List<LoadBalancerDescription> loadBalancers = awsLoadBalancerService.getLoadBalancers(userContext).
                 sort { it.loadBalancerName.toLowerCase() }
 
@@ -289,6 +292,9 @@ class AutoScalingController {
         if (cmd.hasErrors()) {
             chain(action: 'create', model: [cmd: cmd], params: params) // Use chain to pass both the errors and params
         } else {
+
+            // Prevent action if cluster is locked down
+
             UserContext userContext = UserContext.of(request)
             // Auto Scaling Group name
             String groupName = Relationships.buildGroupName(params)
@@ -357,6 +363,9 @@ class AutoScalingController {
 
     def edit = {
         UserContext userContext = UserContext.of(request)
+
+        // Prevent action if cluster is locked down
+
         String name = params.name ?: params.id
         AutoScalingGroup group = awsAutoScalingService.getAutoScalingGroup(userContext, name)
         if (!group) {
@@ -391,6 +400,9 @@ class AutoScalingController {
     }
 
     def update = {
+
+        // Prevent action if cluster is locked down
+
         Map<String, AutoScalingProcessType> processes = AutoScalingProcessType.with { [
                 azRebalance: AZRebalance,
                 launch: Launch,
@@ -445,6 +457,9 @@ class AutoScalingController {
     }
 
     def delete = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         String name = params.name
         AutoScalingGroup group = awsAutoScalingService.getAutoScalingGroup(userContext, name)

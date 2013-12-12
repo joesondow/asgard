@@ -39,6 +39,9 @@ class PushController {
     def index = { redirect(controller: "autoScaling", action: "list", params: params) }
 
     def editRolling = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         String name = params.id ?: params.name
         boolean showAllImages = params.allImages ? true : false
@@ -63,6 +66,9 @@ class PushController {
     }
 
     def startRolling = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         List<String> selectedSecurityGroups = Requests.ensureList(params.selectedSecurityGroups)
 

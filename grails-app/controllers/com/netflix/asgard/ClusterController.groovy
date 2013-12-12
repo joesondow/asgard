@@ -21,6 +21,7 @@ import com.amazonaws.services.autoscaling.model.ScheduledUpdateGroupAction
 import com.amazonaws.services.ec2.model.AvailabilityZone
 import com.amazonaws.services.elasticloadbalancing.model.LoadBalancerDescription
 import com.amazonaws.services.simpleworkflow.flow.ManualActivityCompletionClient
+import com.amazonaws.services.simpleworkflow.model.WorkflowExecutionInfo
 import com.google.common.collect.Sets
 import com.netflix.asgard.deployment.DeploymentWorkflowOptions
 import com.netflix.asgard.deployment.ProceedPreference
@@ -206,6 +207,9 @@ ${lastGroup.loadBalancerNames}"""
     }
 
     def prepareDeployment(String id) {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         Cluster cluster = awsAutoScalingService.getCluster(userContext, id)
         Map<String, Object> attributes = commonNextAsgPreparation(userContext, cluster)
@@ -232,6 +236,9 @@ ${lastGroup.loadBalancerNames}"""
     }
 
     def prepareNextAsg(String id) {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         Cluster cluster = awsAutoScalingService.getCluster(userContext, id)
         Map<String, Object> attributes = commonNextAsgPreparation(userContext, cluster)
@@ -285,13 +292,26 @@ ${lastGroup.loadBalancerNames}"""
     }
 
     def deploy(DeployCommand cmd) {
+
+        // Prevent action if cluster is locked down
+
         if (cmd.hasErrors()) {
             chain(action: 'prepareDeployment', model: [cmd: cmd], params: params)
             return
         }
         DeploymentWorkflowOptions deploymentOptions = new DeploymentWorkflowOptions()
         bindData(deploymentOptions, params)
-        deploymentOptions.clusterName = cmd.clusterName
+        String clusterName = cmd.clusterName
+
+        WorkflowExecutionInfo executionInfo = pushService.getRunningDeploymentForCluster(clusterName)
+        if (executionInfo) {
+            flash.message = "An auto deployment is in progress. To changes manually instead, " +
+                    "you first stop the automation: " + executionInfo
+            // Detect if it's a browser request or not.
+
+        }
+
+        deploymentOptions.clusterName = clusterName
 
         UserContext userContext = UserContext.of(request)
         String appName = Relationships.appNameFromGroupName(cmd.clusterName)
@@ -350,6 +370,9 @@ ${lastGroup.loadBalancerNames}"""
 
     @SuppressWarnings("GroovyAssignabilityCheck")
     def createNextGroup = {
+
+        // Prevent action if cluster is locked down
+
         UserContext userContext = UserContext.of(request)
         String name = params.name
         Cluster cluster = awsAutoScalingService.getCluster(userContext, name)
@@ -478,6 +501,9 @@ Group: ${loadBalancerNames}"""
 
     def resize = {
         UserContext userContext = UserContext.of(request)
+
+        // Prevent action if cluster is locked down
+
         Integer newMin = (params.minSize ?: params.minAndMaxSize) as Integer
         Integer newMax = (params.maxSize ?: params.minAndMaxSize) as Integer
         Integer batchSize = params.batchSize as Integer
@@ -488,6 +514,9 @@ Group: ${loadBalancerNames}"""
 
     def delete = {
         UserContext userContext = UserContext.of(request)
+
+        // Prevent action if cluster is locked down
+
         def name = params.name
         AutoScalingGroup group = awsAutoScalingService.getAutoScalingGroup(userContext, name)
         if (group) {
@@ -500,12 +529,18 @@ Group: ${loadBalancerNames}"""
 
     def activate = {
         UserContext userContext = UserContext.of(request)
+
+        // Prevent action if cluster is locked down
+
         GroupActivateOperation operation = pushService.startGroupActivate(userContext, params.name)
         redirectToTask(operation.taskId)
     }
 
     def deactivate = {
         UserContext userContext = UserContext.of(request)
+
+        // Prevent action if cluster is locked down
+
         GroupDeactivateOperation operation = pushService.startGroupDeactivate(userContext, params.name)
         redirectToTask(operation.taskId)
     }
