@@ -127,6 +127,10 @@ class SecurityControllerSpec extends Specification {
         0 * _._
     }
 
+    def 'edit should display options for source security groups (like ELB) and regular security groups'() {
+
+    }
+
     def 'save should fail without app'() {
         request.method = 'POST'
         def p = controller.params

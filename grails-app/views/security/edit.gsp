@@ -33,7 +33,7 @@
       <div class="dialog">
         <table>
           <tbody>
-          <tr class="prop" title="Changing the name requires a delete and re-create. This may fail if there are references.">
+          <tr class="prop">
             <td class="name">
               Name:
             </td>
@@ -61,6 +61,16 @@
                   </tr>
                 </thead>
                 <tbody>
+
+
+                <g:each var="g" in="${sourceSecurityGroups}" status="i">
+                  <tr class="${(i % 2) == 0 ? 'odd' : 'even'}">
+                    <td class="checkbox"><g:checkBox name="selectedSourceSecurityGroups" value="${g.source}" checked="${g.allowed}"/></td>
+                    <td><label for="${g.source}">${g.source}</label></td>
+                    <td><input type="text" id="${g.source}" name="${g.source}" value="${g.ports}"/></td>
+                  </tr>
+                </g:each>
+
                 <g:each var="g" in="${groups}" status="i">
                   <tr class="${(i % 2) == 0 ? 'odd' : 'even'}">
                     <td class="checkbox"><g:checkBox name="selectedGroups" value="${g.source}" checked="${g.allowed}"/></td>
